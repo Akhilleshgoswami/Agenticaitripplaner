@@ -24,7 +24,6 @@ BASE_URL = "https://api.aviationstack.com/v1/flights"
 AIRPORTS = airportsdata.load("IATA")
 
 
-
 COUNTRY_ALIASES = {
     "usa": "US",
     "u.s.a": "US",
@@ -89,8 +88,6 @@ COUNTRY_MAIN_AIRPORT = {
 }
 
 
-
-
 CITY_MAIN_AIRPORT = {
     "dhaka": "DAC",
     "delhi": "DEL",
@@ -125,13 +122,27 @@ def clean_text(text: str) -> str:
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text)
     stop_words = [
-        "flight", "flights", "ticket", "tickets", "trip", "travel",
-        "plan", "complete", "days", "day", "including", "hotel",
-        "hotels", "sightseeing", "under", "budget", "info", "information"
+        "flight",
+        "flights",
+        "ticket",
+        "tickets",
+        "trip",
+        "travel",
+        "plan",
+        "complete",
+        "days",
+        "day",
+        "including",
+        "hotel",
+        "hotels",
+        "sightseeing",
+        "under",
+        "budget",
+        "info",
+        "information",
     ]
     words = [w for w in text.split() if w not in stop_words]
     return " ".join(words).strip()
-
 
 
 def country_name_to_code(text: str):
@@ -159,7 +170,6 @@ def country_name_to_code(text: str):
     return None
 
 
-
 def airport_country_matches(airport: dict, country_code: str) -> bool:
     airport_country = str(airport.get("country", "")).upper().strip()
 
@@ -174,8 +184,6 @@ def airport_country_matches(airport: dict, country_code: str) -> bool:
         pass
 
     return False
-
-
 
 
 def get_best_airport_for_country(country_code: str):
@@ -212,8 +220,6 @@ def get_best_airport_for_country(country_code: str):
 
     candidates.sort(reverse=True)
     return candidates[0][1]
-
-
 
 
 def resolve_location_to_iata(location: str):
@@ -283,8 +289,6 @@ def resolve_location_to_iata(location: str):
         return city_matches[0][1]
 
     return None
-
-
 
 
 def find_location_mentions(query: str):
