@@ -5,6 +5,6 @@ Create the Vritual envirotment
 2. Acitvate the Enviroment 
 
 ```conda activate  travle```
-3. instal the reuiremenets  
+3.pip instal the reuiremenets  
 
 ```pip install -r requirements.txt```
