@@ -13,7 +13,7 @@ OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 # we can also host it to cloud 
 @mcp.tool()
 def get_current_weather(city: str):
-    """Get the current weather for a city."""
+    """Ask OpenWeather for the current conditions of a city."""
     response = requests.get(
         "https://api.openweathermap.org/data/2.5/weather",
         params={
@@ -42,7 +42,7 @@ def get_current_weather(city: str):
 # we can also host it to cloud  
 @mcp.tool()
 def get_forecast(city: str):
-    """Get the next five forecast entries for a city."""
+    """Ask OpenWeather for the next five forecast time slots of a city."""
     url = "https://api.openweathermap.org/data/2.5/forecast"
     params = {
         "q": city,

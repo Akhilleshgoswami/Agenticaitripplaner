@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from backend import run_travel_agent
+from backend import resume_travel_agent, run_travel_agent
 # this is used for handle mutlievent loop in asyncio 
 import nest_asyncio
 nest_asyncio.apply()
@@ -28,11 +28,23 @@ app.mount(
 templates = Jinja2Templates(directory=str(BASE_DIR/"templates"))
 
 class TravelRequest(BaseModel):
-    message:str
-    thread_id:str |None=None
+    message: str
+    thread_id: str | None = None
+
+
+class ResumeRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    feedback: str = ""
+
+
+def _plan_response(result: dict):
+    """Wrap a backend result in the success flag the page expects."""
+    return {"success": True, **result}
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+    """Serve the TripMate page."""
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -40,6 +52,7 @@ async def home(request: Request):
     )
 @app.post("/api/travel")
 async def travel_planner(request_data: TravelRequest):
+    """Start a trip. The graph pauses when the draft is ready for review."""
     try:
         user_message = request_data.message.strip()
 
@@ -57,18 +70,7 @@ async def travel_planner(request_data: TravelRequest):
             thread_id=request_data.thread_id
         )
 
-        return JSONResponse(
-            content={
-                "success": True,
-                "thread_id": result["thread_id"],
-                "answer": result["answer"],
-                "flight_results": result["flight_results"],
-                "hotel_results": result["hotel_results"],
-                "weather_results": result["weather_results"],
-                "itinerary": result["itinerary"],
-                "llm_calls": result["llm_calls"],
-            }
-        )
+        return JSONResponse(content=_plan_response(result))
 
     except Exception as e:
         print("ERROR:", e)
@@ -82,6 +84,35 @@ async def travel_planner(request_data: TravelRequest):
             }
         )
 
+
+
+@app.post("/api/travel/resume")
+async def resume_planner(request_data: ResumeRequest):
+    """Continue a paused trip after the user approves or requests changes."""
+    try:
+        thread_id = request_data.thread_id.strip()
+        if not thread_id:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "thread_id is required to resume a travel plan.",
+                },
+            )
+
+        result = resume_travel_agent(
+            thread_id=thread_id,
+            approved=request_data.approved,
+            feedback=request_data.feedback,
+        )
+        return JSONResponse(content=_plan_response(result))
+    except Exception as e:
+        print("ERROR:", e)
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)},
+        )
 
 
 @app.get("/health")

@@ -6,86 +6,157 @@
     <title>TripMate</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <a class="skip" href="#userInput">Skip to the trip request</a>
+
     <header class="topbar">
         <a class="brand" href="/">
             <span class="brand-mark" aria-hidden="true">Tm</span>
             <span class="brand-name">TripMate</span>
         </a>
-        <p class="topbar-note">Flights, hotels, weather, and a day-by-day plan</p>
+        <button id="newTripBtn" class="text-btn" type="button">New trip</button>
     </header>
 
     <main class="page">
-        <section class="intro">
-            <p class="eyebrow">Travel desk</p>
-            <h1>Write the trip. Get a plan you can actually use.</h1>
-            <p class="lede">
-                Say where you are leaving from, where you are going, how long, and what you can spend.
-                TripMate comes back with flight options, hotel suggestions, the weather at your destination, and an itinerary.
-            </p>
-            <ol class="facts">
-                <li><span>01</span>Flights that match the request</li>
-                <li><span>02</span>Hotels inside the budget</li>
-                <li><span>03</span>Weather and a short forecast</li>
-                <li><span>04</span>A day-by-day itinerary</li>
-            </ol>
-        </section>
+        <div class="workspace">
+            <section class="desk" aria-labelledby="deskTitle">
+                <p class="eyebrow">Travel desk</p>
+                <h1 id="deskTitle">Plan the trip, then approve it.</h1>
+                <p class="lede">
+                    Say where you are leaving from, where you are going, how long, and what you can spend.
+                    TripMate checks flights, hotels, weather, and budget, then waits for your review.
+                </p>
+                <p id="continueNote" class="continue-note hidden"></p>
 
-        <section class="desk">
-            <label class="field-label" for="userInput">Trip request</label>
-            <textarea
-                id="userInput"
-                rows="5"
-                placeholder="7 days in Japan from Dhaka, under 2 lakh. Include flights, hotels, weather, and a few neighborhoods worth staying in."
-            ></textarea>
+                <label class="field-label" for="userInput">Trip request</label>
+                <textarea
+                    id="userInput"
+                    rows="6"
+                    placeholder="7 days in Japan from Dhaka, under 2 lakh. Include flights, hotels, weather, and a few neighborhoods worth staying in."
+                ></textarea>
 
-            <div class="quick-prompts">
-                <button type="button" onclick="setPrompt('Plan a complete 7 days Japan trip from Bangladesh including flights, hotels and sightseeing under 2 lakhs.')">Japan, 7 days</button>
-                <button type="button" onclick="setPrompt('Plan a 5 days Dubai trip from Dhaka with flights, hotels and sightseeing.')">Dubai, 5 days</button>
-                <button type="button" onclick="setPrompt('Plan a 7 days Thailand trip from Bangladesh with budget hotels and sightseeing.')">Thailand, 7 days</button>
-                <button type="button" onclick="setPrompt('Give me all country flight info.')">Flight overview</button>
-            </div>
-
-            <div class="desk-actions">
-                <button id="sendBtn" type="button" onclick="sendMessage()">
-                    <span id="btnText">Build itinerary</span>
-                    <span id="btnLoader" class="loader hidden"></span>
-                </button>
-                <p class="hint">Ctrl + Enter</p>
-            </div>
-        </section>
-
-        <section id="errorBox" class="error-box hidden" role="alert"></section>
-
-        <section id="resultSection" class="result-section hidden">
-            <div class="result-header">
-                <div>
-                    <p class="eyebrow">Itinerary</p>
-                    <p id="threadInfo" class="thread-info">Thread ID: -</p>
+                <div class="quick-prompts" role="group" aria-label="Example trips">
+                    <button type="button" class="chip" data-prompt="Plan a complete 7 days Japan trip from Bangladesh including flights, hotels and sightseeing under 2 lakhs.">
+                        <strong>Japan</strong>
+                        <span>7 days from Bangladesh</span>
+                    </button>
+                    <button type="button" class="chip" data-prompt="Plan a 5 days Dubai trip from Dhaka with flights, hotels and sightseeing.">
+                        <strong>Dubai</strong>
+                        <span>5 days from Dhaka</span>
+                    </button>
+                    <button type="button" class="chip" data-prompt="Plan a 7 days Thailand trip from Bangladesh with budget hotels and sightseeing.">
+                        <strong>Thailand</strong>
+                        <span>7 days, budget hotels</span>
+                    </button>
+                    <button type="button" class="chip" data-prompt="Plan a 4 days Istanbul trip from Dhaka with mid-range hotels and walking neighborhoods.">
+                        <strong>Istanbul</strong>
+                        <span>4 days, mid-range</span>
+                    </button>
                 </div>
-                <div class="result-actions">
-                    <button class="copy-btn" type="button" onclick="copyResult()">Copy</button>
-                    <button class="download-btn" type="button" onclick="downloadPDF()">Download PDF</button>
-                </div>
-            </div>
 
-            <div id="pdfContent" class="pdf-content">
-                <h1 class="pdf-title">TripMate itinerary</h1>
-                <section id="weatherPanel" class="weather-panel hidden">
-                    <p class="eyebrow">Weather</p>
-                    <pre id="weatherBox" class="weather-box"></pre>
+                <div class="desk-actions">
+                    <button id="sendBtn" type="button">
+                        <span id="btnLoader" class="loader hidden" aria-hidden="true"></span>
+                        <span id="btnText">Plan this trip</span>
+                    </button>
+                    <p class="hint"><kbd>Ctrl</kbd> or <kbd>⌘</kbd> + <kbd>Enter</kbd></p>
+                </div>
+                <p id="workStatus" class="work-status hidden" aria-live="polite">
+                    <span class="progress" aria-hidden="true"><span></span></span>
+                    <span id="workStatusText"></span>
+                </p>
+                <section id="errorBox" class="error-box hidden" role="alert"></section>
+            </section>
+
+            <div class="stage">
+                <section id="emptyState" class="empty-state" aria-labelledby="emptyTitle">
+                    <p class="eyebrow">What you get</p>
+                    <h2 id="emptyTitle">A draft you can change before it becomes the plan.</h2>
+                    <ol class="facts">
+                        <li>
+                            <span>01</span>
+                            <strong>Describe the trip</strong>
+                            <p>Origin, destination, length, and budget are enough to start.</p>
+                        </li>
+                        <li>
+                            <span>02</span>
+                            <strong>Wait for the checks</strong>
+                            <p>Flights, hotels, weather, and budget are gathered before anything is final.</p>
+                        </li>
+                        <li>
+                            <span>03</span>
+                            <strong>Review the draft</strong>
+                            <p>Approve it, or send notes and get a revised plan.</p>
+                        </li>
+                        <li>
+                            <span>04</span>
+                            <strong>Keep the result</strong>
+                            <p>Copy the finished itinerary or download it as a PDF.</p>
+                        </li>
+                    </ol>
                 </section>
-                <div id="resultBox" class="result-box"></div>
+
+                <section id="resultSection" class="result-section hidden">
+                    <div class="result-header">
+                        <div>
+                            <p id="resultEyebrow" class="eyebrow">Itinerary</p>
+                            <div id="planMeta" class="plan-meta"></div>
+                            <p id="threadInfo" class="thread-info"></p>
+                        </div>
+                        <div class="result-actions">
+                            <button id="copyPlanBtn" class="copy-btn" type="button">Copy</button>
+                            <button id="downloadPlanBtn" class="download-btn" type="button">Download PDF</button>
+                        </div>
+                    </div>
+
+                    <section id="reviewPanel" class="review-panel hidden">
+                        <p class="eyebrow">Your review</p>
+                        <p id="approvalRequest" class="review-copy"></p>
+                        <label class="field-label" for="feedbackInput">What should change?</label>
+                        <textarea
+                            id="feedbackInput"
+                            rows="3"
+                            placeholder="Leave this blank to approve the draft as written, or say what should change."
+                        ></textarea>
+                        <div class="review-actions">
+                            <button id="reviseBtn" class="copy-btn" type="button">Revise draft</button>
+                            <button id="approveBtn" class="download-btn" type="button">Approve plan</button>
+                        </div>
+                    </section>
+
+                    <div id="pdfContent" class="pdf-content">
+                        <h1 class="pdf-title">TripMate itinerary</h1>
+                        <ul id="constraintRow" class="constraint-row hidden"></ul>
+                        <div id="resultBox" class="result-box"></div>
+                        <section id="weatherPanel" class="weather-panel hidden">
+                            <p class="eyebrow">Weather</p>
+                            <pre id="weatherBox" class="weather-box"></pre>
+                        </section>
+                        <section id="budgetPanel" class="weather-panel hidden">
+                            <p class="eyebrow">Budget</p>
+                            <div id="budgetBox" class="result-box"></div>
+                        </section>
+                    </div>
+
+                    <details id="flightPanel" class="support hidden">
+                        <summary>Flight notes</summary>
+                        <div id="flightBox" class="result-box"></div>
+                    </details>
+                    <details id="hotelPanel" class="support hidden">
+                        <summary>Hotel search notes</summary>
+                        <div id="hotelBox" class="result-box"></div>
+                    </details>
+                </section>
             </div>
-        </section>
+        </div>
     </main>
 
     <footer class="footer">
         <span>TripMate</span>
-        <span>Plans stay on this browser until you start a new one.</span>
+        <span>A plan stays in this browser until you start a new trip.</span>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
