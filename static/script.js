@@ -35,12 +35,23 @@ function hideError() {
     errorBox.textContent = "";
 }
 
-function showResult(answer, threadId) {
+function showResult(answer, threadId, weather) {
     latestAnswerMarkdown = answer;
 
     const resultSection = document.getElementById("resultSection");
     const resultBox = document.getElementById("resultBox");
     const threadInfo = document.getElementById("threadInfo");
+    const weatherPanel = document.getElementById("weatherPanel");
+    const weatherBox = document.getElementById("weatherBox");
+    const weatherText = weather ? String(weather).trim() : "";
+
+    if (weatherText) {
+        weatherBox.textContent = weatherText;
+        weatherPanel.classList.remove("hidden");
+    } else {
+        weatherBox.textContent = "";
+        weatherPanel.classList.add("hidden");
+    }
 
     if (typeof marked !== "undefined") {
         resultBox.innerHTML = marked.parse(answer);
@@ -92,7 +103,7 @@ async function sendMessage() {
         currentThreadId = data.thread_id;
         localStorage.setItem("travel_thread_id", currentThreadId);
 
-        showResult(data.answer, data.thread_id);
+        showResult(data.answer, data.thread_id, data.weather_results);
 
     } catch (error) {
         showError(error.message);
@@ -102,8 +113,8 @@ async function sendMessage() {
 }
 
 function copyResult() {
-    const resultBox = document.getElementById("resultBox");
-    const text = resultBox.innerText;
+    const pdfContent = document.getElementById("pdfContent");
+    const text = pdfContent.innerText;
 
     if (!text) {
         return;
