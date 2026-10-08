@@ -8,3 +8,6 @@ Create the Vritual envirotment
 3.pip instal the reuiremenets  
 
 ```pip install -r requirements.txt```
+
+# all mcp server 
+https://mcpservers.org/ 
