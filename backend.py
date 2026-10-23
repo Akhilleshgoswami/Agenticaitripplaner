@@ -55,24 +55,53 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY is missing. Please add it to your .env file.")
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+OPEN_AI_API_KEY = os.getenv("OPEN_AI_API_KEY")
 
-# =========================
-# LLM - use accessible Groq model or OpenAI fallback
-# =========================
+primary_llm = None
+fallback_llm = None
+
 if GROQ_API_KEY:
-    llm = ChatGroq(
-        model=GROQ_MODEL,
-        api_key=GROQ_API_KEY,
-    )
-elif os.getenv("OPEN_AI_API_KEY"):
-    from langchain_openai import ChatOpenAI
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        api_key=os.getenv("OPEN_AI_API_KEY"),
-    )
-else:
-    raise ValueError("Neither GROQ_API_KEY nor OPEN_AI_API_KEY is available in .env.")
+    try:
+        primary_llm = ChatGroq(
+            model=GROQ_MODEL,
+            api_key=GROQ_API_KEY,
+        )
+    except Exception as e:
+        print(f"Failed to initialize primary ChatGroq: {e}")
+
+if OPEN_AI_API_KEY:
+    try:
+        from langchain_openai import ChatOpenAI
+        fallback_llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            api_key=OPEN_AI_API_KEY,
+        )
+    except Exception as e:
+        print(f"Failed to initialize fallback ChatOpenAI: {e}")
+
+
+class ResilientLLM:
+    """Wraps primary LLM with automatic fallback on rate limit or model errors."""
+    def __init__(self, primary, fallback=None):
+        self.primary = primary or fallback
+        self.fallback = fallback
+
+    def invoke(self, messages, **kwargs):
+        if self.primary:
+            try:
+                return self.primary.invoke(messages, **kwargs)
+            except Exception as exc:
+                if self.fallback and self.fallback != self.primary:
+                    print(f"[LLM Fallback Triggered] {exc}. Using fallback OpenAI model...")
+                    return self.fallback.invoke(messages, **kwargs)
+                raise
+        elif self.fallback:
+            return self.fallback.invoke(messages, **kwargs)
+        raise ValueError("No LLM is configured.")
+
+
+llm = ResilientLLM(primary=primary_llm, fallback=fallback_llm)
 
 
 # =========================

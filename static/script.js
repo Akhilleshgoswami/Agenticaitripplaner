@@ -10,52 +10,146 @@ function setLoading(isLoading) {
   const btnText = document.getElementById("btnText");
   const btnLoader = document.getElementById("btnLoader");
 
-  sendBtn.disabled = isLoading;
+  if (sendBtn) sendBtn.disabled = isLoading;
 
   if (isLoading) {
-    btnText.classList.add("hidden");
-    btnLoader.classList.remove("hidden");
+    if (btnText) btnText.classList.add("hidden");
+    if (btnLoader) btnLoader.classList.remove("hidden");
   } else {
-    btnText.classList.remove("hidden");
-    btnLoader.classList.add("hidden");
+    if (btnText) btnText.classList.remove("hidden");
+    if (btnLoader) btnLoader.classList.add("hidden");
   }
+}
+
+function setApprovalLoading(isLoading) {
+  const approveBtn = document.getElementById("approveBtn");
+  const reviseBtn = document.getElementById("reviseBtn");
+
+  if (approveBtn) approveBtn.disabled = isLoading;
+  if (reviseBtn) reviseBtn.disabled = isLoading;
 }
 
 function showError(message) {
   const errorBox = document.getElementById("errorBox");
-
-  errorBox.textContent = message;
-  errorBox.classList.remove("hidden");
+  if (errorBox) {
+    errorBox.textContent = message;
+    errorBox.classList.remove("hidden");
+  }
 }
 
 function hideError() {
   const errorBox = document.getElementById("errorBox");
-
-  errorBox.classList.add("hidden");
-  errorBox.textContent = "";
+  if (errorBox) {
+    errorBox.classList.add("hidden");
+    errorBox.textContent = "";
+  }
 }
 
-function showResult(answer, threadId) {
-  latestAnswerMarkdown = answer;
+function renderWorkflow(data) {
+  const workflowSection = document.getElementById("workflowSection");
+  const supervisorReasoning = document.getElementById("supervisorReasoning");
+  const guardrailBadge = document.getElementById("guardrailBadge");
+  const agentChips = document.getElementById("agentChips");
+
+  if (!workflowSection) return;
+
+  if (data.guardrail_allowed === false) {
+    if (guardrailBadge) {
+      guardrailBadge.textContent = "Guardrail Blocked";
+      guardrailBadge.className = "guardrail-badge blocked";
+    }
+    if (supervisorReasoning) {
+      supervisorReasoning.textContent = data.guardrail_reason || data.answer;
+    }
+    if (agentChips) agentChips.innerHTML = "";
+    workflowSection.classList.remove("hidden");
+    return;
+  }
+
+  if (guardrailBadge) {
+    guardrailBadge.textContent = "Guardrail Passed";
+    guardrailBadge.className = "guardrail-badge passed";
+  }
+
+  if (supervisorReasoning) {
+    supervisorReasoning.textContent =
+      data.supervisor_reasoning || "All specialist agents coordinated.";
+  }
+
+  if (agentChips) {
+    agentChips.innerHTML = "";
+    const agentLabels = {
+      flight_agent: "✈️ Flight Agent",
+      hotel_agent: "🏨 Hotel Agent",
+      weather_agent: "🌤️ Weather MCP",
+      budget_agent: "💰 Budget Analyst",
+      itinerary_agent: "🗺️ Itinerary Planner",
+    };
+
+    const agents = data.selected_agents || [
+      "flight_agent",
+      "hotel_agent",
+      "weather_agent",
+      "budget_agent",
+      "itinerary_agent",
+    ];
+
+    agents.forEach((agent) => {
+      const chip = document.createElement("span");
+      chip.className = "agent-chip";
+      chip.textContent = agentLabels[agent] || agent;
+      agentChips.appendChild(chip);
+    });
+  }
+
+  workflowSection.classList.remove("hidden");
+}
+
+function showResult(data) {
+  latestAnswerMarkdown = data.answer || "";
 
   const resultSection = document.getElementById("resultSection");
   const resultBox = document.getElementById("resultBox");
+  const resultTitle = document.getElementById("resultTitle");
   const threadInfo = document.getElementById("threadInfo");
+  const approvalSection = document.getElementById("approvalSection");
+  const approvalRequest = document.getElementById("approvalRequest");
 
-  if (typeof marked !== "undefined") {
-    resultBox.innerHTML = marked.parse(answer);
-  } else {
-    resultBox.innerText = answer;
+  if (threadInfo) {
+    threadInfo.textContent = `Thread ID: ${data.thread_id}`;
   }
 
-  threadInfo.textContent = `Thread ID: ${threadId}`;
+  if (resultTitle) {
+    resultTitle.textContent = data.requires_approval
+      ? "Draft Itinerary (Pending Review)"
+      : "Your AI Travel Plan";
+  }
 
-  resultSection.classList.remove("hidden");
+  if (resultBox) {
+    if (typeof marked !== "undefined") {
+      resultBox.innerHTML = marked.parse(latestAnswerMarkdown);
+    } else {
+      resultBox.innerText = latestAnswerMarkdown;
+    }
+  }
 
-  resultSection.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
+  if (resultSection) {
+    resultSection.classList.remove("hidden");
+  }
+
+  // Handle Human-in-the-Loop review section
+  if (data.requires_approval && approvalSection) {
+    if (approvalRequest && data.approval_request) {
+      approvalRequest.textContent = data.approval_request;
+    }
+    approvalSection.classList.remove("hidden");
+    approvalSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else if (approvalSection) {
+    approvalSection.classList.add("hidden");
+    if (resultSection) {
+      resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 }
 
 async function sendMessage() {
@@ -92,7 +186,8 @@ async function sendMessage() {
     currentThreadId = data.thread_id;
     localStorage.setItem("travel_thread_id", currentThreadId);
 
-    showResult(data.answer, data.thread_id);
+    renderWorkflow(data);
+    showResult(data);
   } catch (error) {
     showError(error.message);
   } finally {
@@ -100,25 +195,63 @@ async function sendMessage() {
   }
 }
 
-function copyResult() {
-  const resultBox = document.getElementById("resultBox");
-  const text = resultBox.innerText;
+async function submitApproval(approved) {
+  hideError();
 
-  if (!text) {
+  if (!currentThreadId) {
+    showError("No active travel planning thread found.");
     return;
   }
+
+  const feedbackInput = document.getElementById("approvalFeedback");
+  const feedback = feedbackInput ? feedbackInput.value.trim() : "";
+
+  setApprovalLoading(true);
+
+  try {
+    const response = await fetch("/api/travel/approval", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        thread_id: currentThreadId,
+        approved: approved,
+        feedback: feedback,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to submit approval.");
+    }
+
+    showResult(data);
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    setApprovalLoading(false);
+  }
+}
+
+function copyResult() {
+  const resultBox = document.getElementById("resultBox");
+  const text = resultBox ? resultBox.innerText : "";
+
+  if (!text) return;
 
   navigator.clipboard
     .writeText(text)
     .then(() => {
       const copyBtn = document.querySelector(".copy-btn");
-      const oldText = copyBtn.textContent;
-
-      copyBtn.textContent = "Copied!";
-
-      setTimeout(() => {
-        copyBtn.textContent = oldText;
-      }, 1400);
+      if (copyBtn) {
+        const oldText = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => {
+          copyBtn.textContent = oldText;
+        }, 1400);
+      }
     })
     .catch(() => {
       showError("Could not copy result.");
@@ -134,10 +267,12 @@ function downloadPDF() {
   }
 
   const downloadBtn = document.querySelector(".download-btn");
-  const oldText = downloadBtn.textContent;
+  const oldText = downloadBtn ? downloadBtn.textContent : "";
 
-  downloadBtn.textContent = "Preparing PDF...";
-  downloadBtn.disabled = true;
+  if (downloadBtn) {
+    downloadBtn.textContent = "Preparing PDF...";
+    downloadBtn.disabled = true;
+  }
 
   const options = {
     margin: 0.5,
@@ -166,12 +301,16 @@ function downloadPDF() {
     .from(pdfContent)
     .save()
     .then(() => {
-      downloadBtn.textContent = oldText;
-      downloadBtn.disabled = false;
+      if (downloadBtn) {
+        downloadBtn.textContent = oldText;
+        downloadBtn.disabled = false;
+      }
     })
     .catch(() => {
-      downloadBtn.textContent = oldText;
-      downloadBtn.disabled = false;
+      if (downloadBtn) {
+        downloadBtn.textContent = oldText;
+        downloadBtn.disabled = false;
+      }
       showError("Could not download PDF.");
     });
 }

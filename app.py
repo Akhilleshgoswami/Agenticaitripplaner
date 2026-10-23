@@ -12,7 +12,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import uvicorn
 
-from backend import run_travel_agent
+import asyncio
+from backend import resume_travel_agent, run_travel_agent
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -34,6 +35,12 @@ class TravelRequest(BaseModel):
     thread_id: str | None = None
 
 
+class ApprovalRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    feedback: str = ""
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse(request=request, name="index.html", context={})
@@ -50,25 +57,54 @@ async def travel_planner(request_data: TravelRequest):
                 content={"success": False, "error": "Message cannot be empty."},
             )
 
-        result = run_travel_agent(
-            user_input=user_message, thread_id=request_data.thread_id
+        result = await asyncio.to_thread(
+            run_travel_agent,
+            user_input=user_message,
+            thread_id=request_data.thread_id,
         )
 
         return JSONResponse(
             content={
                 "success": True,
-                "thread_id": result["thread_id"],
-                "answer": result["answer"],
-                "flight_results": result["flight_results"],
-                "hotel_results": result["hotel_results"],
-                "weather_results": result.get("weather_results", ""),
-                "itinerary": result["itinerary"],
-                "llm_calls": result["llm_calls"],
+                **result,
             }
         )
 
     except Exception as e:
-        print("ERROR:", e)
+        print("ERROR in /api/travel:", e)
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/travel/approval")
+@app.post("/api/approval")
+async def travel_approval(request_data: ApprovalRequest):
+    try:
+        if not request_data.thread_id:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "thread_id is required for approval."},
+            )
+
+        result = await asyncio.to_thread(
+            resume_travel_agent,
+            thread_id=request_data.thread_id,
+            approved=request_data.approved,
+            feedback=request_data.feedback,
+        )
+
+        return JSONResponse(
+            content={
+                "success": True,
+                **result,
+            }
+        )
+
+    except Exception as e:
+        print("ERROR in /api/travel/approval:", e)
         traceback.print_exc()
 
         return JSONResponse(
