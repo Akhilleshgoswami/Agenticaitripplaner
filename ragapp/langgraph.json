@@ -1,0 +1,12 @@
+{
+  "dependencies": [
+    "./src/utils",
+    "./src",
+    "."
+  ],
+  "graphs": {
+    "question_answer_graph": "./src/answering_question.py:question_answer_graph",
+    "create_analysts": "./src/createing_analysts.py:graph"
+  },
+  "env": ".env"
+}
